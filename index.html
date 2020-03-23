@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html>
+<head>
+	<meta charset="utf-8"/>
+	<title>Simulation</title>
+	<style type="text/css">
+		body {
+			width: 800px;
+			padding: 10px;
+			margin: auto;
+			font-family: "Helvetica Neue", "Arial", sans-serif;
+		}
+		canvas {
+			border: 1px solid grey;
+			border-radius: 5px;
+		}
+
+		.left {
+			float: left;
+			margin-right: 10px;
+		}
+
+		.right {
+			float: right;
+			margin-left: 10px;
+		}
+
+		button {
+			padding: 5px 20px;
+			border-width: 1px;
+			border-style: solid;
+			background-color: #f8f8f8;
+			border-color: #e0e0e0 #c8c8c8 #c0c0c0 #d0d0d0;
+			border-radius: 5px;
+			margin-top: 5px;
+			margin-right: 5px;
+		}
+
+		button:hover {
+			background-color: #f0f0f0;
+		}
+
+		button:active {
+			background-color: #e0e0e0;
+		}
+
+		button.toggled {
+			color: #ffffff;
+			background-color: #a8a8a8;
+			border-color: #c0c0c0 #d0d0d0 #e0e0e0 #c8c8c8;
+		}
+
+		button.toggled:hover {
+			background-color: #a0a0a0;
+		}
+
+		button.toggled:active {
+			background-color: #909090;
+		}
+
+		div.segmentedcontrol {
+			display: inline-block;
+		}
+
+		.segmentedcontrol > button {
+			float: left;
+			border-radius: 0;
+			margin-right: 0;
+			border-left-width: 0.5px;
+			border-right-width: 0.5px;
+		}
+
+		.segmentedcontrol > button.left-side {
+			border-top-left-radius: 5px;
+			border-bottom-left-radius: 5px;
+		}
+
+		.segmentedcontrol > button.right-side {
+			border-top-right-radius: 5px;
+			border-bottom-right-radius: 5px;
+			margin-right: 5px;
+		}
+
+		.segmentedcontrol > button.toggled {
+			color: #ffffff;
+			background-color: #a8a8a8;
+			border-color: #c0c0c0 #d0d0d0 #e0e0e0 #c8c8c8;
+		}
+	</style>
+	<script type="application/javascript" src="sim.js"></script>
+</head>
+<body>
+	<div>
+		<canvas id="sim_area" width="800" height="800">
+			Simulation Area
+		</canvas>
+	</div>
+	<div>
+		<button id="quadtree" class="left togglebutton">Draw QuadTree</button>
+		<button id="vectors" class="left togglebutton">Draw Vectors</button>
+		<div style="">
+			<div id="socdist" name="socdist" class="right segmentedcontrol">
+				<button class="left-side">None</button>
+				<button class="toggled">Moderate</button>
+				<button class="right-side">Extensive</button>
+			</div>
+		<div class="right" style="position: relative; margin-top:auto; margin-bottom:auto;">Social Distancing:</div>
+		</div>
+	</div>
+<!-- 	<input type="range" id="socdist" name="socdist" /> -->
+	<script type="application/javascript">
+		for (var toggleButton of document.getElementsByClassName("togglebutton")) {
+			toggleButton.isToggled = false;
+			toggleButton.addEventListener("click", function(e) {
+				var toggleButton = e.target;
+				toggleButton.isToggled = !toggleButton.isToggled;
+				if (toggleButton.isToggled) {
+					toggleButton.classList.add("toggled");
+				} else {
+					toggleButton.classList.remove("toggled");
+				}
+			});
+		}
+	</script>
+</body>
+</html>
