@@ -13,6 +13,7 @@
 		canvas {
 			border: 1px solid grey;
 			border-radius: 5px;
+			background-color: #f4f4f4;
 		}
 
 		.left {
@@ -32,8 +33,6 @@
 			background-color: #f8f8f8;
 			border-color: #e0e0e0 #c8c8c8 #c0c0c0 #d0d0d0;
 			border-radius: 5px;
-			margin-top: 5px;
-			margin-right: 5px;
 		}
 
 		button:hover {
@@ -90,21 +89,15 @@
 	<script type="application/javascript" src="sim.js"></script>
 </head>
 <body>
-	<div>
-		<canvas id="sim_area" width="800" height="800">
-			Simulation Area
-		</canvas>
-	</div>
-	<div>
-		<button id="quadtree" class="left togglebutton">Draw QuadTree</button>
-		<button id="vectors" class="left togglebutton">Draw Vectors</button>
-		<div style="">
-			<div id="socdist" name="socdist" class="right segmentedcontrol">
-				<button class="left-side">None</button>
-				<button class="toggled">Moderate</button>
-				<button class="right-side">Extensive</button>
-			</div>
-		<div class="right" style="position: relative; margin-top:auto; margin-bottom:auto;">Social Distancing:</div>
+	<div><canvas id="sim_area" width="800" height="800">Simulation Area</canvas></div>
+	<button id="quadtree" class="left togglebutton">Draw QuadTree</button>
+	<button id="vectors" class="left togglebutton">Draw Vectors</button>
+	<div class="right">
+		<span>Social Distancing:</span>
+		<div id="socdist" name="socdist" class="segmentedcontrol">
+			<button class="left-side">None</button>
+			<button class="toggled">Moderate</button>
+			<button class="right-side">Extensive</button>
 		</div>
 	</div>
 <!-- 	<input type="range" id="socdist" name="socdist" /> -->
