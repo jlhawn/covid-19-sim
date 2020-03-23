@@ -87,14 +87,19 @@
 			background-color: #a8a8a8;
 			border-color: #c0c0c0 #d0d0d0 #e0e0e0 #c8c8c8;
 		}
+
+		#social-distancing > * {
+			margin-top: auto;
+			margin-bottom: auto;
+		}
 	</style>
 	<script type="application/javascript" src="sim.js"></script>
 </head>
 <body>
 	<button id="quadtree" class="togglebutton">Draw QuadTree</button>
 	<button id="vectors" class="togglebutton">Draw Vectors</button>
-	<div class="flex right">
-		<span style="margin: auto 5px auto 0;">Social Distancing:</span>
+	<div id="social-distancing" class="flex right">
+		<span style="margin-right: .5em;">Social Distancing:</span>
 		<div id="socdist" name="socdist" class="segmentedcontrol">
 			<button class="left-side">None</button>
 			<button class="toggled">Moderate</button>
