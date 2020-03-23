@@ -26,6 +26,8 @@
 			margin-left: 10px;
 		}
 
+		.flex { display: flex; }
+
 		button {
 			padding: 5px 20px;
 			border-width: 1px;
@@ -89,16 +91,18 @@
 	<script type="application/javascript" src="sim.js"></script>
 </head>
 <body>
-	<div><canvas id="sim_area" width="800" height="800">Simulation Area</canvas></div>
-	<button id="quadtree" class="left togglebutton">Draw QuadTree</button>
-	<button id="vectors" class="left togglebutton">Draw Vectors</button>
-	<div class="right">
-		<span>Social Distancing:</span>
+	<button id="quadtree" class="togglebutton">Draw QuadTree</button>
+	<button id="vectors" class="togglebutton">Draw Vectors</button>
+	<div class="flex right">
+		<span style="margin: auto 5px auto 0;">Social Distancing:</span>
 		<div id="socdist" name="socdist" class="segmentedcontrol">
 			<button class="left-side">None</button>
 			<button class="toggled">Moderate</button>
 			<button class="right-side">Extensive</button>
 		</div>
+	</div>
+	<div style="margin-top: 10px;">
+		<canvas id="sim_area" width="800" height="800">Simulation Area</canvas>
 	</div>
 <!-- 	<input type="range" id="socdist" name="socdist" /> -->
 	<script type="application/javascript">
