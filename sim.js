@@ -559,7 +559,7 @@ class BouncingBall {
 	vectorPath2D() {
 		var path = new Path2D();
 		path.moveTo(this.circle.x, this.circle.y);
-		path.lineTo(this.circle.x + 2*this.vector.dx, this.circle.y + 2*this.vector.dy);
+		path.lineTo(this.circle.x + 5*this.vector.dx, this.circle.y + 5*this.vector.dy);
 		return path;
 	}
 
