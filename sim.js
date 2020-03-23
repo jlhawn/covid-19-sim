@@ -370,7 +370,7 @@ function elasticCollision(x1, x2, v1, v2, m1, m2) {
 const healthy = 0;
 const infected = 1;
 const recovered = 2;
-const infectionDuration = 10000;
+const infectionDuration = 200;
 
 class BouncingBall {
 	// A: x(t) = dx1 * t + x1
@@ -391,7 +391,7 @@ class BouncingBall {
 		this.id = "b" + BouncingBall.nextID++;
 
 		this.health = healthy;
-		this.timeOfInfection = null;
+		this.timeSinceInfection = null;
 	}
 
 	boundingRect(buffer) {
@@ -409,17 +409,19 @@ class BouncingBall {
 	move(dt) {
 		this.circle.translate(this.vector.scale(dt));
 		this.qTreeItem.move(this.circle);
+		this.maybeRecover(dt);
 	}
 
 	maybeInfect(bBall) {
 		if (this.health === infected && bBall.health < infected) {
 			bBall.health = infected;
-			bBall.timeOfInfection = Date.now();
+			bBall.timeSinceInfection = 0;
 		}
 	}
 
-	maybeRecover(now) {
-		if (this.health === infected && (now - this.timeOfInfection) > infectionDuration) {
+	maybeRecover(dt) {
+		this.timeSinceInfection += dt;
+		if (this.health === infected && this.timeSinceInfection > infectionDuration) {
 			this.health = recovered;
 		}
 	}
@@ -438,8 +440,8 @@ class BouncingBall {
 		var x1 = this.circle;
 		var x2 = bBall.circle;
 
-		this.vector = inelasticCollision(x1, x2, v1, v2, m1, m2, 1.0);
-		bBall.vector = inelasticCollision(x2, x1, v2, v1, m2, m1, 1.0);
+		this.vector = elasticCollision(x1, x2, v1, v2, m1, m2);
+		bBall.vector = elasticCollision(x2, x1, v2, v1, m2, m1);
 
 		this.maybeInfect(bBall);
 		bBall.maybeInfect(this);
@@ -646,12 +648,12 @@ class CollisionEvent {
 		this.b1.collideWith(this.b2);
 	}
 
-	reevaluate(t, endT) {
+	reevaluate(t, frameDuration) {
 		var dt = this.b1.timeUntilCollision(this.b2);
 		if (dt === null) {
 			return false; // Event will not happen.
 		}
-		if (t + dt > endT) {
+		if (t + dt > frameDuration) {
 			return false; // Event occurs after this frame ends.
 		}
 		this.t = t + dt;
@@ -776,7 +778,7 @@ class CollisionEventsMinHeap {
 		// This new event is at the bottom of the heap. We may need to bubble
 		// it up.
 		this.bubbleUp(idx);
-		this.check();
+		// this.check();
 	}
 
 	remove(idx) {
@@ -850,7 +852,7 @@ class CollisionEventsMinHeap {
 			this.swap(idx, leftIdx);
 		}
 		// There are no more entries further down.
-		this.check();
+		// this.check();
 	}
 }
 
@@ -892,208 +894,99 @@ class CollisionEventsMinHeap {
 - move all balls by the remaining (frameDuration - timePassed)
 */
 
-function test() {
-	// Place balls in quadtree.
-	var ballRadius = 5;
-	var rectBuffer = 3*ballRadius;
-	var maxSize = 800;
-	var ballTree = new QuadTree(0, 0, maxSize, maxSize);
-	var balls = [];
+class Simulation {
+	constructor() {
+		// Place balls in quadtree.
+		var ballRadius = 5;
+		var rectBuffer = 3*ballRadius;
+		var maxSize = 800;
 
-	for (var i = 0; i < 1000; i++) {
-		var x = rectBuffer/2 + Math.random() * (maxSize - rectBuffer);
-		var y = rectBuffer/2 + Math.random() * (maxSize - rectBuffer);
-		var circle = new Circle(x, y, ballRadius);
+		this.ballTree = new QuadTree(0, 0, maxSize, maxSize);
+		this.balls = [];
 
-		var nearbyCircles = ballTree.itemsInRange(circle.boundingRect(ballRadius));
-		while (nearbyCircles.length > 0) {
-			x = rectBuffer/2 + Math.random() * (maxSize - rectBuffer);
-			y = rectBuffer/2 + Math.random() * (maxSize - rectBuffer);
-			circle = new Circle(x, y, ballRadius);
-			nearbyCircles = ballTree.itemsInRange(circle.boundingRect(ballRadius));
+		for (var i = 0; i < 1000; i++) {
+			var x = rectBuffer/2 + Math.random() * (maxSize - rectBuffer);
+			var y = rectBuffer/2 + Math.random() * (maxSize - rectBuffer);
+			var circle = new Circle(x, y, ballRadius);
+
+			var nearbyCircles = this.ballTree.itemsInRange(circle.boundingRect(ballRadius));
+			while (nearbyCircles.length > 0) {
+				x = rectBuffer/2 + Math.random() * (maxSize - rectBuffer);
+				y = rectBuffer/2 + Math.random() * (maxSize - rectBuffer);
+				circle = new Circle(x, y, ballRadius);
+				nearbyCircles = this.ballTree.itemsInRange(circle.boundingRect(ballRadius));
+			}
+
+			var dx = 2*Math.random()-1;
+			var dy = 2*Math.random()-1;
+			var vec = new Vector(dx, dy);
+
+			this.balls.push(new BouncingBall(this.ballTree, circle, vec));
+		}
+		// Infect 3 balls.
+		for (var i = 0; i < 3; i++) {
+			this.balls[i].health = infected;
+			this.balls[i].timeOfInfection = Date.now();
 		}
 
-		var dx = 2*Math.random()-1;
-		var dy = 2*Math.random()-1;
-		var vec = new Vector(dx, dy);
+		// Create walls.
+		this.walls = [
+			new BoundaryWall(new Point(0, 0), new Vector(0, 1), new Rectangle(-rectBuffer, -rectBuffer, maxSize+rectBuffer, rectBuffer)), // Top Wall.
+			new BoundaryWall(new Point(0, 0), new Vector(1, 0), new Rectangle(-rectBuffer, -ballRadius, rectBuffer, maxSize+rectBuffer)), // Left Wall.
+			new BoundaryWall(new Point(maxSize, maxSize), new Vector(0, -1), new Rectangle(-rectBuffer, maxSize - rectBuffer, maxSize+rectBuffer, maxSize+rectBuffer)), // Bottom Wall.
+			new BoundaryWall(new Point(maxSize, maxSize), new Vector(-1, 0), new Rectangle(maxSize - rectBuffer, -rectBuffer, maxSize+rectBuffer, maxSize+rectBuffer)), // Right Wall.
+		];
 
-		balls.push(new BouncingBall(ballTree, circle, vec));
+		this.canvas = document.getElementById("sim_area");
+		this.drawCtx = this.canvas.getContext('2d');
+
+		this.qTreeToggle = document.getElementById("quadtree");
+		this.vectorsToggle = document.getElementById("vectors");
+		this.socialDistancingControl = document.getElementById("socdist");
+
+		this.ballRadius = ballRadius;
+		this.rectBuffer = rectBuffer;
+		this.frameNum = 0;
 	}
-	// Infect 3 balls.
-	for (var i = 0; i < 3; i++) {
-		balls[i].health = infected;
-		balls[i].timeOfInfection = Date.now();
+
+	draw() {
+		this.drawCtx.clearRect(0, 0, this.canvas.width, this.canvas.height);
+		for (var ball of this.balls) {
+			ball.draw(this.drawCtx);
+		}
+		if (this.vectorsToggle.isToggled) {
+			for (var ball of this.balls) {
+				this.drawCtx.stroke(ball.vectorPath2D());
+			}
+		}
+		if (this.qTreeToggle.isToggled) {
+			for (var path of this.ballTree.path2Ds()) {
+				this.drawCtx.stroke(path);
+			}
+		}
 	}
 
-	// Create walls.
-	var walls = [
-		new BoundaryWall(new Point(0, 0), new Vector(0, 1), new Rectangle(-rectBuffer, -rectBuffer, maxSize+rectBuffer, rectBuffer)), // Top Wall.
-		new BoundaryWall(new Point(0, 0), new Vector(1, 0), new Rectangle(-rectBuffer, -ballRadius, rectBuffer, maxSize+rectBuffer)), // Left Wall.
-		new BoundaryWall(new Point(maxSize, maxSize), new Vector(0, -1), new Rectangle(-rectBuffer, maxSize - rectBuffer, maxSize+rectBuffer, maxSize+rectBuffer)), // Bottom Wall.
-		new BoundaryWall(new Point(maxSize, maxSize), new Vector(-1, 0), new Rectangle(maxSize - rectBuffer, -rectBuffer, maxSize+rectBuffer, maxSize+rectBuffer)), // Right Wall.
-	];
+	getSocDist() {
+		switch (this.socialDistancingControl.value) {
+		case "moderate":
+			return 5.1;
+		case "extensive":
+			return 7.2;
+		default:
+			return 0;
+		}
+	}
 
-	var canvas = document.getElementById("sim_area");
-	var ctx = canvas.getContext('2d');
-
-	var qTreeToggle = document.getElementById("quadtree");
-	var vectorsToggle = document.getElementById("vectors");
-
-	var socialDistancing = document.getElementById("socdist");
-	socialDistancing.min = 0;
-	socialDistancing.max = 10;
-	socialDistancing.step = 0.01;
-	socialDistancing.value = 0;
-
-	var frameNum = 0;
-
-	var frame = function() {
-		frameNum++;
-		// console.log("New Frame");
-		var t = 0; // Set time.
-		var endT = 0.25;
-
-		// Create an event heap.
-		var eventHeap = new CollisionEventsMinHeap();
-
-		// Add collision events between balls.
-		for (var ball of balls) {
-			for (var nearbyBall of ballTree.itemsInRange(ball.boundingRect(rectBuffer))) {
-				if (nearbyBall.id <= ball.id) {
-					// if the ball IDs are the same, don't check.
-					// if the nearby ball has a lesser ID it would have
-					// already been checked against this ball in the outer
-					// loop.
-					continue;
-				}
-
-				var dt = ball.timeUntilBallCollision(nearbyBall);
-				if (dt === null) {
-					continue; // No collision.
-				}
-
-				if (t+dt > endT) {
-					continue; // Event occurs after this frame ends.
-				}
-
-				var detectedCollision = new CollisionEvent(t + dt, ball, nearbyBall);
-				// console.log("Detected Collision:", detectedCollision.key(), detectedCollision);
-				eventHeap.add(detectedCollision);
-			}
+	doSocialDistancing() {
+		var socDist = this.getSocDist();
+		if (!socDist) {
+			return;
 		}
 
-		// Add collision events between walls.
-		for (var wall of walls) {
-			for (var nearbyBall of ballTree.itemsInRange(wall.region)) {
-				var dt = nearbyBall.timeUntilWallCollision(wall);
-				if (dt === null) {
-					continue; // No wall collision.
-				}
-
-				if (t + dt > endT) {
-					continue; // Event occurs after this frame ends.
-				}
-
-				var detectedCollision = new CollisionEvent(t + dt, wall, nearbyBall);
-				// console.log("Detected Collision:", detectedCollision.key(), detectedCollision);
-				eventHeap.add(detectedCollision);
-			}
-		}
-
-		while (!eventHeap.isEmpty()) {
-			eventHeap.check(frameNum);
-			var event = eventHeap.removeMin();
-
-			if (event.isMaybe && !event.reevaluate(t, endT)) {
-				continue;
-			}
-
-			// Move all balls to the point of this event.
-			var dt = event.t - t;
-			if (dt < 0) {
-				console.log("past event", frameNum, t, event);
-				throw new Error("event is in the past", dt);
-			}
-			if (dt > 0) {
-				for (var ball of balls) {
-					ball.move(dt);
-				}
-				t += dt;
-			}
-
-			// console.log("Performing Collision:", event.key(), event);
-			event.perform();
-
-			// Create any new future events for the balls involved.
-			for (var ball of event.balls()) {
-				for (var nearbyBall of ballTree.itemsInRange(ball.boundingRect(rectBuffer))) {
-					if (nearbyBall.id === ball.id) {
-						continue; // Skip self.
-					}
-
-					var dt = ball.timeUntilBallCollision(nearbyBall);
-					if (dt === null) {
-						continue; // No collision.
-					}
-
-					if (t+dt > endT) {
-						continue; // Event occurs after this frame ends.
-					}
-
-					var detectedCollision = new CollisionEvent(t + dt, ball, nearbyBall);
-					// console.log("Detected Another Collision:", detectedCollision.key(), detectedCollision);
-					eventHeap.add(detectedCollision);
-				}
-
-				// Check for any wall collisions.
-				for (var wall of walls) {
-					var dt = ball.timeUntilWallCollision(wall);
-					if (dt === null) {
-						continue; // No wall collision.
-					}
-
-					if (t + dt > endT) {
-						continue; // Event occurs after this frame ends.
-					}
-
-					var detectedCollision = new CollisionEvent(t + dt, ball, wall);
-					// console.log("Detected Another Collision:", detectedCollision.key(), detectedCollision);
-					eventHeap.add(detectedCollision);
-				}
-			}
-		}
-
-		// No more events. Perform a final move of all balls and draw.
-		ctx.clearRect(0, 0, canvas.width, canvas.height);
-		var dt = endT - t;
-		if (dt > 0) {
-			for (var ball of balls) {
-				ball.move(dt);
-			}
-		}
-
-		var now = Date.now();
-		for (var ball of balls) {
-			ball.maybeRecover(now);
-			ball.draw(ctx);
-		}
-		if (vectorsToggle.isToggled) {
-			for (var ball of balls) {
-				ctx.stroke(ball.vectorPath2D());
-			}
-		}
-		if (qTreeToggle.isToggled) {
-			for (var path of ballTree.path2Ds()) {
-				ctx.stroke(path);
-			}
-		}
-
-		var socDist = socialDistancing.value;
 		var socDistSqrt = Math.sqrt(socDist);
-
 		var maxVSqrd = 4 - 0.3*socDist;
-		var repulsorRange = ballRadius*6;
-		for (var ball of balls) {
+		var repulsorRange = this.ballRadius*6;
+		for (var ball of this.balls) {
 			// If the ball's velocity magnitude squared is greater than the max
 			// allowed then the velocity vector is attenuated.
 			var vSqrd = ball.vector.scalarProduct(ball.vector);
@@ -1102,7 +995,7 @@ function test() {
 				ball.vector = ball.vector.scale(scaleFactor);
 			}
 
-			var nearbyBalls = ballTree.itemsInRange(ball.boundingRect(repulsorRange - ballRadius));
+			var nearbyBalls = this.ballTree.itemsInRange(ball.boundingRect(repulsorRange - this.ballRadius));
 			for (var nearbyBall of nearbyBalls) {
 				if (nearbyBall.id === ball.id) { continue; }
 
@@ -1116,20 +1009,164 @@ function test() {
 				nearbyBall.vector = nearbyBall.vector.add(dVelVec);
 			}
 		}
+	}
 
-		setTimeout(frame, 1);
-	};
+	computeNextFrame() {
+		this.frameNum++;
 
-	frame();
+		var frameDuration = 0.25;
+
+		// Create an event heap.
+		var eventHeap = new CollisionEventsMinHeap();
+
+		// Add collision events between balls.
+		for (var ball of this.balls) {
+			for (var nearbyBall of this.ballTree.itemsInRange(ball.boundingRect(this.rectBuffer))) {
+				if (nearbyBall.id <= ball.id) {
+					// if the ball IDs are the same, don't check.
+					// if the nearby ball has a lesser ID it would have
+					// already been checked against this ball in the outer
+					// loop.
+					continue;
+				}
+
+				var dt = ball.timeUntilBallCollision(nearbyBall);
+				if (dt === null) {
+					continue; // No collision.
+				}
+
+				if (dt > frameDuration) {
+					continue; // Event occurs after this frame ends.
+				}
+
+				var detectedCollision = new CollisionEvent(dt, ball, nearbyBall);
+				// console.log("Detected Collision:", detectedCollision.key(), detectedCollision);
+				eventHeap.add(detectedCollision);
+			}
+		}
+
+		// Add collision events between walls.
+		for (var wall of this.walls) {
+			for (var nearbyBall of this.ballTree.itemsInRange(wall.region)) {
+				var dt = nearbyBall.timeUntilWallCollision(wall);
+				if (dt === null) {
+					continue; // No wall collision.
+				}
+
+				if (dt > frameDuration) {
+					continue; // Event occurs after this frame ends.
+				}
+
+				var detectedCollision = new CollisionEvent(dt, wall, nearbyBall);
+				// console.log("Detected Collision:", detectedCollision.key(), detectedCollision);
+				eventHeap.add(detectedCollision);
+			}
+		}
+
+		var t = 0; // Set time.
+		while (!eventHeap.isEmpty()) {
+			var event = eventHeap.removeMin();
+
+			if (event.isMaybe && !event.reevaluate(t, frameDuration)) {
+				continue;
+			}
+
+			// Move all balls to the point of this event.
+			if (event.t < t) {
+				console.log("past event", this.frameNum, t, event);
+				throw new Error("event is in the past");
+			}
+			if (event.t > t) {
+				for (var ball of this.balls) {
+					ball.move(event.t-t);
+				}
+				t = event.t;
+			}
+
+			// console.log("Performing Collision:", event.key(), event);
+			event.perform();
+
+			// Create any new future events for the balls involved.
+			for (var ball of event.balls()) {
+				for (var nearbyBall of this.ballTree.itemsInRange(ball.boundingRect(this.rectBuffer))) {
+					if (nearbyBall.id === ball.id) {
+						continue; // Skip self.
+					}
+
+					var dt = ball.timeUntilBallCollision(nearbyBall);
+					if (dt === null) {
+						continue; // No collision.
+					}
+
+					if (t+dt > frameDuration) {
+						continue; // Event occurs after this frame ends.
+					}
+
+					var detectedCollision = new CollisionEvent(t + dt, ball, nearbyBall);
+					// console.log("Detected Another Collision:", detectedCollision.key(), detectedCollision);
+					eventHeap.add(detectedCollision);
+				}
+
+				// Check for any wall collisions.
+				for (var wall of this.walls) {
+					var dt = ball.timeUntilWallCollision(wall);
+					if (dt === null) {
+						continue; // No wall collision.
+					}
+
+					if (t + dt > frameDuration) {
+						continue; // Event occurs after this frame ends.
+					}
+
+					var detectedCollision = new CollisionEvent(t + dt, ball, wall);
+					// console.log("Detected Another Collision:", detectedCollision.key(), detectedCollision);
+					eventHeap.add(detectedCollision);
+				}
+			}
+		}
+
+		// No more events. Perform a final move of all balls and draw.
+		var dt = frameDuration - t;
+		if (dt > 0) {
+			for (var ball of this.balls) {
+				ball.move(dt);
+			}
+		}
+
+		this.doSocialDistancing();
+	}
+
+	run() {
+		this.computeNextFrame();
+		this.draw();
+		this.timeoutID = setTimeout(function(simulation) { simulation.run(); }, 5, this);
+	}
+
+	cancel() {
+		console.log("cancelling");
+		clearTimeout(this.timeoutID);
+	}
+}
+
+function run() {
+	var simulation = new Simulation();
+	// console.log(simulation);
+
+	var resetButton = document.getElementById("reset");
+	resetButton.addEventListener("click", function() {
+		simulation.cancel();
+		simulation = new Simulation();
+		console.log("running simulation");
+		simulation.run();
+	});
+
+	console.log("running simulation");
+	simulation.run();
 };
-
-
 
 document.addEventListener('readystatechange', (event) => {
     if (document.readyState === "complete") {
     	console.log("READY");
-    	test();
+    	run();
     }
 });
-
-console.log("hello");

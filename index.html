@@ -82,46 +82,75 @@
 			margin-right: 5px;
 		}
 
-		.segmentedcontrol > button.toggled {
-			color: #ffffff;
-			background-color: #a8a8a8;
-			border-color: #c0c0c0 #d0d0d0 #e0e0e0 #c8c8c8;
-		}
-
 		#social-distancing > * {
 			margin-top: auto;
 			margin-bottom: auto;
 		}
+
 	</style>
 	<script type="application/javascript" src="sim.js"></script>
 </head>
 <body>
+	<button id="reset">Reset Simulation</button>
 	<button id="quadtree" class="togglebutton">Draw QuadTree</button>
 	<button id="vectors" class="togglebutton">Draw Vectors</button>
 	<div id="social-distancing" class="flex right">
 		<span style="margin-right: .5em;">Social Distancing:</span>
-		<div id="socdist" name="socdist" class="segmentedcontrol">
-			<button class="left-side">None</button>
-			<button class="toggled">Moderate</button>
-			<button class="right-side">Extensive</button>
+		<div id="socdist" name="socdist" class="segmentedcontrol" initial-value="none">
+			<button class="left-side" value="none">None</button>
+			<button value="moderate">Moderate</button>
+			<button class="right-side" value="extensive">Extensive</button>
 		</div>
 	</div>
 	<div style="margin-top: 10px;">
 		<canvas id="sim_area" width="800" height="800">Simulation Area</canvas>
 	</div>
-<!-- 	<input type="range" id="socdist" name="socdist" /> -->
 	<script type="application/javascript">
 		for (var toggleButton of document.getElementsByClassName("togglebutton")) {
-			toggleButton.isToggled = false;
-			toggleButton.addEventListener("click", function(e) {
-				var toggleButton = e.target;
-				toggleButton.isToggled = !toggleButton.isToggled;
-				if (toggleButton.isToggled) {
-					toggleButton.classList.add("toggled");
-				} else {
-					toggleButton.classList.remove("toggled");
+			(function(toggleButton) {
+				toggleButton.isToggled = false;
+				toggleButton.addEventListener("click", function() {
+					toggleButton.isToggled = !toggleButton.isToggled;
+					if (toggleButton.isToggled) {
+						toggleButton.classList.add("toggled");
+					} else {
+						toggleButton.classList.remove("toggled");
+					}
+				});
+			})(toggleButton);
+		}
+		for (var segentedControl of document.getElementsByClassName("segmentedcontrol")) {
+			(function(segentedControl) {
+				for (var childNode of segentedControl.children) {
+					(function(childNode) {
+						childNode.addEventListener("click", function() {
+							var prevSib = childNode.previousElementSibling;
+							while (prevSib) {
+								prevSib.classList.remove("toggled");
+								prevSib = prevSib.previousElementSibling;
+							}
+							var nextSib = childNode.nextElementSibling;
+							while (nextSib) {
+								nextSib.classList.remove("toggled");
+								nextSib = nextSib.nextElementSibling;
+							}
+							childNode.classList.add("toggled");
+							segentedControl.value = childNode.getAttribute("value");
+						});
+					})(childNode);
 				}
-			});
+				segentedControl.reset = function() {
+					segentedControl.value = segentedControl.getAttribute("initial-value");
+					for (var childNode of segentedControl.children) {
+						if (childNode.getAttribute("value") === segentedControl.value) {
+							childNode.classList.add("toggled");
+						} else {
+							childNode.classList.remove("toggled");
+						}
+					}
+				};
+				segentedControl.reset();
+			})(segentedControl);
 		}
 	</script>
 </body>
